@@ -45,7 +45,7 @@ export const Icon = ({ name, size = 20, className = "" }: { name: string; size?:
     case "search": return <svg {...props}><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>;
     case "user": return <svg {...props}><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>;
     case "wind": return <svg {...props}><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2" /><path d="M9.6 4.6A2 2 0 1 1 11 8H2" /><path d="M12.6 19.4A2 2 0 1 0 14 16H2" /></svg>;
-    case "droplet": return <svg {...props}><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z" /></svg>;
+    case "droplet": return <svg {...props}><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z" /></svg>;
     case "target": return <svg {...props}><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" /></svg>;
     case "check": return <svg {...props}><path d="M20 6 9 17l-5-5" /></svg>;
     case "shield": return <svg {...props}><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" /><path d="M12 8v4" /><path d="M12 16h.01" /></svg>;
@@ -640,10 +640,13 @@ export default function SmartLogisticsApp() {
     }
     
     let customDetourCoords: any[] = [];
-    if (trackingData?.detour && selectedDelivery) {
-        const hLng = Number(trackingData.detour.hazard_longitude || 73.8567);
-        const hLat = Number(trackingData.detour.hazard_latitude || 18.5204);
-        const severity = trackingData.detour.severity || "Critical"; 
+    const detourData = trackingData?.detour;
+    const hId = detourData?.hazard_id;
+
+    if (detourData && selectedDelivery && !handledHazards.includes(hId)) {
+        const hLng = Number(detourData.hazard_longitude || 73.8567);
+        const hLat = Number(detourData.hazard_latitude || 18.5204);
+        const severity = detourData.severity || "Critical"; 
         const rKm = severity === "Critical" ? 30 : severity === "High" ? 24 : severity === "Medium" ? 18 : 9;
         const oDeg = rKm / 111.0; 
 
@@ -653,13 +656,11 @@ export default function SmartLogisticsApp() {
         const dLng = Number(selectedDelivery.destination_longitude);
         const dLat = Number(selectedDelivery.destination_latitude);
 
-        // Vector from Truck to Destination
         const dx = dLng - sLng;
         const dy = dLat - sLat;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
         if (dist > 0) {
-            // Perpendicular Vector (90-degree push)
             const pX = -dy / dist;
             const pY = dx / dist; 
 
@@ -675,14 +676,14 @@ export default function SmartLogisticsApp() {
         }
     }
 
-    const currSeverity = trackingData?.detour?.severity || "Critical";
+    const currSeverity = detourData?.severity || "Critical";
     const currRadius = currSeverity === "Critical" ? 30 : currSeverity === "High" ? 24 : currSeverity === "Medium" ? 18 : 9;
 
-    const activeDetourRoute = (trackingData?.detour && !handledHazards.includes(trackingData.detour.hazard_id)) ? [{
+    const activeDetourRoute = (detourData && !handledHazards.includes(hId)) ? [{
       id: "detour-1", type: "Alternative", algorithm: `AI Vector Barrier (${currRadius}km Clearance)`,
-      path: ["Current Location", `Bypass Entry`, `Bypass Exit`, selectedDelivery?.destination || "Destination"],
-      nodes_coords: customDetourCoords.length > 0 ? customDetourCoords : trackingData.detour.detour_waypoints.map((c: any) => ({ lat: Number(c[0]), lng: Number(c[1]) })),
-      cost_hrs: trackingData.detour.cost_hrs, distance_km: trackingData.detour.distance_km
+      path: ["Current Location", `Safe Bypass`, selectedDelivery?.destination || "Destination"],
+      nodes_coords: customDetourCoords,
+      cost_hrs: detourData.cost_hrs || 0, distance_km: detourData.distance_km || 0
     }] : [];
 
     return (
@@ -836,26 +837,26 @@ export default function SmartLogisticsApp() {
                 </div>
 
                 {/* DYNAMIC REROUTE PROMPT */}
-                {trackingData?.detour && !acceptingReroute && !handledHazards.includes(trackingData.detour.hazard_id) && (
+                {detourData && !acceptingReroute && !handledHazards.includes(detourData.hazard_id) && (
                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[2000] w-[90%] max-w-lg bg-[#06182A]/95 backdrop-blur-xl border border-[#FFB547] text-white rounded-2xl p-6 shadow-[0_30px_60px_rgba(0,0,0,0.8),0_0_30px_rgba(255,181,71,0.2)] flex flex-col gap-4">
                     <div>
                       <div className="flex items-center gap-3 mb-2">
                         <div className="w-10 h-10 rounded-full bg-[#FFB547]/20 flex items-center justify-center text-[#FFB547]"><Icon name="alert" size={24} /></div>
                         <h3 className="text-xl font-extrabold uppercase tracking-wide text-[#FFB547]">Hazard Detected Ahead</h3>
                       </div>
-                      <p className="text-sm font-semibold text-slate-200 mb-4">{trackingData.detour.reason}</p>
+                      <p className="text-sm font-semibold text-slate-200 mb-4">{detourData.reason}</p>
                       
                       <div className="bg-[#03101E] rounded-lg p-3 border border-slate-700 text-xs text-[#91A9C2]">
                         <div className="mb-2">System has generated a severity-scaled mathematical bypass.</div>
-                        <div className="text-white font-mono">{trackingData.detour.recommended_path.join(" → ")}</div>
-                        <div className="mt-2 text-[#FFB547]">+ {(trackingData.detour.cost_hrs - trackingData.trip_metrics.estimated_arrival_hours).toFixed(1)} hrs additional time</div>
+                        <div className="text-white font-mono">{detourData.recommended_path?.join(" → ")}</div>
+                        <div className="mt-2 text-[#FFB547]">+ {(detourData.cost_hrs - (trackingData?.trip_metrics?.estimated_arrival_hours || 0)).toFixed(1)} hrs additional time</div>
                       </div>
                     </div>
                     <div className="flex gap-3 mt-2">
-                      <button onClick={() => handleDeclineReroute(trackingData.detour.hazard_id)} className="flex-1 py-3 rounded-xl bg-transparent border border-slate-500 text-slate-300 text-xs font-bold hover:text-white hover:border-slate-400 transition-all">
+                      <button onClick={() => handleDeclineReroute(detourData.hazard_id)} className="flex-1 py-3 rounded-xl bg-transparent border border-slate-500 text-slate-300 text-xs font-bold hover:text-white hover:border-slate-400 transition-all">
                         Stay on Route
                       </button>
-                      <button onClick={() => handleAcceptReroute(trackingData.detour)} className="flex-1 py-3 rounded-xl bg-[#FFB547] text-[#03101E] font-bold shadow-xl hover:bg-[#FF8C00] transition-all">
+                      <button onClick={() => handleAcceptReroute(detourData)} className="flex-1 py-3 rounded-xl bg-[#FFB547] text-[#03101E] font-bold shadow-xl hover:bg-[#FF8C00] transition-all">
                         Accept Reroute ↗
                       </button>
                     </div>
@@ -900,6 +901,9 @@ export default function SmartLogisticsApp() {
     );
   }
 
+  // ---------------------------------------------------------
+  // MAIN ENTERPRISE WEB SHELL
+  // ---------------------------------------------------------
   return (
     <div className="relative min-h-screen h-screen w-screen overflow-hidden text-[#EAF5FF] font-sans select-none bg-black">
       <div className="fixed inset-0 z-0 bg-cover bg-center pointer-events-none" style={{ backgroundImage: `url('/bg-theme.jpg')` }} />
@@ -1105,7 +1109,6 @@ export default function SmartLogisticsApp() {
                     </div>
                     <div className="flex items-end justify-between h-28 pt-4 px-1 border-b border-[#2D9BCC]/15">
                       {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day, idx) => {
-                        // Dynamically calculate percentages based on your ACTUAL live routes database!
                         const totalR = routes.length || 1;
                         const liveLow = (routes.filter(r => !r.risk_assessment || r.risk_assessment.level === "Low").length / totalR) * 100;
                         const liveMed = (routes.filter(r => r.risk_assessment?.level === "Medium").length / totalR) * 100;
