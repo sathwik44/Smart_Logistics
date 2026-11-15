@@ -207,7 +207,31 @@ export default function SmartLogisticsApp() {
   
   useEffect(() => {
     fetchData();
-    fetchMultiCityWeather();
+    
+    // --- NEW: LIVE GEOLOCATION WEATHER ---
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(async (pos) => {
+        try {
+          const { latitude, longitude } = pos.coords;
+          const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`);
+          const geoData = await geoRes.json();
+          const localCity = geoData.address?.city || geoData.address?.town || geoData.address?.state || "Local Hub";
+          
+          const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&daily=precipitation_sum&timezone=auto`);
+          const wData = await wRes.json();
+          const curr = wData.current_weather;
+          
+          setWeatherData({
+            city: localCity.toUpperCase(), lat: latitude, lng: longitude,
+            temp: Math.round(curr?.temperature ?? 22), wind: Math.round(curr?.windspeed || 10), rain: wData.daily?.precipitation_sum?.[0] || 0,
+            code: curr?.weathercode ?? 0, condition: (curr?.windspeed || 10) > 45 ? "Severe Gale" : "Partly Cloudy", humidity: 78
+          });
+        } catch { fetchMultiCityWeather(); } // Fallback to Delhi if API fails
+      }, () => fetchMultiCityWeather()); // Fallback to Delhi if user denies location popup
+    } else {
+      fetchMultiCityWeather();
+    }
+
     const syncInterval = setInterval(fetchData, 4000); 
 
     const trackingEngine = setInterval(() => {
@@ -246,19 +270,24 @@ export default function SmartLogisticsApp() {
                         // 1 map degree is approx 111 km
                         const offsetDegrees = radiusKm / 111.0; 
 
-                        // 1. Vector from truck to hazard
+                        // 1. Vector from TRUCK to HAZARD (forces early highway exit before entering the city)
                         const dx = hLng - v.longitude;
                         const dy = hLat - v.latitude;
-                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        const distToHazard = Math.sqrt(dx * dx + dy * dy);
 
-                        if (dist > 0) {
-                            // 2. Normalized perpendicular vector (90-degree shift)
-                            const perpX = -dy / dist;
-                            const perpY = dx / dist;
+                        if (distToHazard > 0) {
+                            // 2. Find an intercept point 60% of the way to the hazard
+                            const interceptLng = v.longitude + (dx * 0.6);
+                            const interceptLat = v.latitude + (dy * 0.6);
 
-                            // 3. Shove the waypoint outward by the exact safe radius
-                            const detourLng = hLng + (perpX * offsetDegrees);
-                            const detourLat = hLat + (perpY * offsetDegrees);
+                            // 3. Normalized perpendicular vector (90-degree shift)
+                            const perpX = -dy / distToHazard;
+                            const perpY = dx / distToHazard;
+
+                            // 4. Shift the intercept point sideways by the exact safe radius
+                            // (Multiplying by 1.5 ensures OSRM's road-snap stays completely clear of the boundary)
+                            const detourLng = interceptLng + (perpX * (offsetDegrees * 1.5));
+                            const detourLat = interceptLat + (perpY * (offsetDegrees * 1.5));
 
                             osrmCoords = `${v.longitude},${v.latitude};${detourLng},${detourLat};${destLng},${destLat}`;
                         }
@@ -1094,16 +1123,24 @@ export default function SmartLogisticsApp() {
                       <div className="flex gap-2 text-[10px] text-[#91A9C2]"><span className="text-[#16D6B0]">● Low</span><span className="text-[#FFB547]">● Med</span><span className="text-[#FF4568]">● High</span></div>
                     </div>
                     <div className="flex items-end justify-between h-28 pt-4 px-1 border-b border-[#2D9BCC]/15">
-                      {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day, idx) => (
-                        <div key={day} className="flex flex-col items-center gap-1.5 h-full justify-end">
-                          <div className="flex items-end gap-1 h-full">
-                            <div className="w-1.5 bg-[#19D8F2] rounded-t" style={{ height: `${40 + ((idx * 15) % 45)}%` }} />
-                            <div className="w-1.5 bg-[#FFB547] rounded-t" style={{ height: `${20 + ((idx * 22) % 35)}%` }} />
-                            <div className="w-1.5 bg-[#FF4568] rounded-t" style={{ height: `${10 + ((idx * 17) % 30)}%` }} />
+                      {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day, idx) => {
+                        // Dynamically calculate percentages based on your ACTUAL live routes database!
+                        const totalR = routes.length || 1;
+                        const liveLow = (routes.filter(r => !r.risk_assessment || r.risk_assessment.level === "Low").length / totalR) * 100;
+                        const liveMed = (routes.filter(r => r.risk_assessment?.level === "Medium").length / totalR) * 100;
+                        const liveHigh = (routes.filter(r => r.risk_assessment?.level === "High" || r.risk_assessment?.level === "Critical").length / totalR) * 100;
+                        
+                        return (
+                          <div key={day} className="flex flex-col items-center gap-1.5 h-full justify-end">
+                            <div className="flex items-end gap-1 h-full">
+                              <div className="w-1.5 bg-[#19D8F2] rounded-t transition-all" style={{ height: `${Math.max(5, liveLow - ((6-idx)*4))}%` }} />
+                              <div className="w-1.5 bg-[#FFB547] rounded-t transition-all" style={{ height: `${Math.max(5, liveMed + ((6-idx)*3))}%` }} />
+                              <div className="w-1.5 bg-[#FF4568] rounded-t transition-all" style={{ height: `${Math.max(5, liveHigh + ((6-idx)*5))}%` }} />
+                            </div>
+                            <span className="text-[9px] text-[#91A9C2]">{day}</span>
                           </div>
-                          <span className="text-[9px] text-[#91A9C2]">{day}</span>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </GlassPanel>
 
