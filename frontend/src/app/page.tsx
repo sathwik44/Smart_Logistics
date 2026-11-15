@@ -251,45 +251,47 @@ export default function SmartLogisticsApp() {
                     osrmCache.current[rId] = "FETCHING";
                     let osrmCoords = `${v.longitude},${v.latitude};${destLng},${destLat}`;
 
-                    // Read from the live references to beat the stale closure!
                     const tData = trackingDataRef.current;
                     const hHazards = handledHazardsRef.current;
 
-                    // If detour exists AND driver accepted it
                     if (tData?.detour && hHazards.includes(tData.detour.hazard_id)) {
-                        const hLng = Number(tData.detour.hazard_longitude);
-                        const hLat = Number(tData.detour.hazard_latitude);
-                        const severity = tData.detour.severity || "High"; 
+                        const hLng = Number(tData.detour.hazard_longitude || 73.8567);
+                        const hLat = Number(tData.detour.hazard_latitude || 18.5204);
+                        const severity = tData.detour.severity || "Critical"; 
 
-                        // Your Exact Radius Rules (converted to km)
-                        let radiusKm = 9; // Low
+                        let radiusKm = 9; 
                         if (severity === "Critical") radiusKm = 30;
                         else if (severity === "High") radiusKm = 24;
                         else if (severity === "Medium") radiusKm = 18;
 
-                        // 1 map degree is approx 111 km
-                        const offsetDegrees = radiusKm / 111.0; 
+                        const offsetDeg = radiusKm / 111.0; 
 
-                        // 1. Vector from TRUCK to HAZARD (forces early highway exit before entering the city)
-                        const dx = hLng - v.longitude;
-                        const dy = hLat - v.latitude;
-                        const distToHazard = Math.sqrt(dx * dx + dy * dy);
+                        // 1. Overall highway vector (Source to Dest)
+                        const activeDel = deliveriesRef.current.find((d: any) => d.vehicle_number === v.vehicle_number);
+                        const sLng = activeDel?.source_longitude || v.longitude;
+                        const sLat = activeDel?.source_latitude || v.latitude;
+                        
+                        const dx = destLng - sLng;
+                        const dy = destLat - sLat;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
 
-                        if (distToHazard > 0) {
-                            // 2. Find an intercept point 60% of the way to the hazard
-                            const interceptLng = v.longitude + (dx * 0.6);
-                            const interceptLat = v.latitude + (dy * 0.6);
+                        if (dist > 0) {
+                            const fX = dx / dist;
+                            const fY = dy / dist;
+                            
+                            // Perpendicular Vector (90 degrees sideways)
+                            const pX = -fY;
+                            const pY = fX;
 
-                            // 3. Normalized perpendicular vector (90-degree shift)
-                            const perpX = -dy / distToHazard;
-                            const perpY = dx / distToHazard;
+                            // Waypoint 1: Exit highway 30km before hazard, 30km to the side
+                            const wp1Lng = hLng - (fX * offsetDeg) + (pX * offsetDeg);
+                            const wp1Lat = hLat - (fY * offsetDeg) + (pY * offsetDeg);
 
-                            // 4. Shift the intercept point sideways by the exact safe radius
-                            // (Multiplying by 1.5 ensures OSRM's road-snap stays completely clear of the boundary)
-                            const detourLng = interceptLng + (perpX * (offsetDegrees * 1.5));
-                            const detourLat = interceptLat + (perpY * (offsetDegrees * 1.5));
+                            // Waypoint 2: Rejoin highway 30km after hazard, 30km to the side
+                            const wp2Lng = hLng + (fX * offsetDeg) + (pX * offsetDeg);
+                            const wp2Lat = hLat + (fY * offsetDeg) + (pY * offsetDeg);
 
-                            osrmCoords = `${v.longitude},${v.latitude};${detourLng},${detourLat};${destLng},${destLat}`;
+                            osrmCoords = `${v.longitude},${v.latitude};${wp1Lng},${wp1Lat};${wp2Lng},${wp2Lat};${destLng},${destLat}`;
                         }
                     }
 
@@ -654,10 +656,51 @@ export default function SmartLogisticsApp() {
       );
     }
 
-    const activeDetourRoute = trackingData?.detour ? [{
-      id: "detour-1", type: "Alternative", algorithm: "Hazard Bypass",
-      path: trackingData.detour.recommended_path,
-      nodes_coords: trackingData.detour.detour_waypoints.map((c: any) => ({ lat: c[0], lng: c[1] })),
+    let customDetourCoords: any[] = [];
+    if (trackingData?.detour && selectedDelivery) {
+        const hLng = Number(trackingData.detour.hazard_longitude || 73.8567);
+        const hLat = Number(trackingData.detour.hazard_latitude || 18.5204);
+        const severity = trackingData.detour.severity || "Critical"; 
+        const rKm = severity === "Critical" ? 30 : severity === "High" ? 24 : severity === "Medium" ? 18 : 9;
+        const oDeg = rKm / 111.0; 
+
+        const sLng = selectedDelivery.source_longitude;
+        const sLat = selectedDelivery.source_latitude;
+        const dLng = selectedDelivery.destination_longitude;
+        const dLat = selectedDelivery.destination_latitude;
+
+        const dx = dLng - sLng;
+        const dy = dLat - sLat;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist > 0) {
+            const fX = dx / dist;
+            const fY = dy / dist;
+            const pX = -fY;
+            const pY = fX;
+
+            const wp1Lng = hLng - (fX * oDeg) + (pX * oDeg);
+            const wp1Lat = hLat - (fY * oDeg) + (pY * oDeg);
+            const wp2Lng = hLng + (fX * oDeg) + (pX * oDeg);
+            const wp2Lat = hLat + (fY * oDeg) + (pY * oDeg);
+
+            const liveTruck = vehicles.find(v => v.vehicle_number === selectedDelivery.vehicle_number);
+            customDetourCoords = [
+                { lat: liveTruck?.latitude || sLat, lng: liveTruck?.longitude || sLng },
+                { lat: wp1Lat, lng: wp1Lng },
+                { lat: wp2Lat, lng: wp2Lng },
+                { lat: dLat, lng: dLng }
+            ];
+        }
+    }
+
+    const currSeverity = trackingData?.detour?.severity || "Critical";
+    const currRadius = currSeverity === "Critical" ? 30 : currSeverity === "High" ? 24 : currSeverity === "Medium" ? 18 : 9;
+
+    const activeDetourRoute = (trackingData?.detour && !handledHazards.includes(trackingData.detour.hazard_id)) ? [{
+      id: "detour-1", type: "Alternative", algorithm: `AI Vector Barrier (${currRadius}km Clearance)`,
+      path: ["Current Location", `Bypass Entry`, `Bypass Exit`, selectedDelivery.destination],
+      nodes_coords: customDetourCoords.length > 0 ? customDetourCoords : trackingData.detour.detour_waypoints.map((c: any) => ({ lat: c[0], lng: c[1] })),
       cost_hrs: trackingData.detour.cost_hrs, distance_km: trackingData.detour.distance_km
     }] : [];
 
