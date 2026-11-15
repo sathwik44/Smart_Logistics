@@ -92,6 +92,7 @@ export default function SmartLogisticsApp() {
   const [acceptingReroute, setAcceptingReroute] = useState(false);
   const [isTripPaused, setIsTripPaused] = useState(false);
   const [isMarkedArrived, setIsMarkedArrived] = useState(false);
+  const handledHazards = useRef<Set<number>>(new Set());
 
   const [mapLayers, setMapLayers] = useState({ vehicles: true, routes: true, incidents: true, weather: true });
   const handleToggleLayer = (key: string) => { setMapLayers((prev: any) => ({ ...prev, [key]: !prev[key] })); };
@@ -217,20 +218,28 @@ export default function SmartLogisticsApp() {
               if (!osrmCache.current[rId] || osrmCache.current[rId] === "FETCHING") {
                   if (!osrmCache.current[rId]) {
                     osrmCache.current[rId] = "FETCHING";
-                    
-                    // 1. Calculate from CURRENT TRUCK LOCATION (v.longitude, v.latitude)
                     let osrmCoords = `${v.longitude},${v.latitude};${destLng},${destLat}`;
 
-                    // 2. Dynamic Wide Bypass BEFORE the hazard
-                    if (trackingData && trackingData.detour && trackingData.detour.hazard_longitude && trackingData.detour.hazard_latitude) {
-                        // Wide offset to cleanly skirt around the city instead of a tight U-turn
-                        const detourLng = Number(trackingData.detour.hazard_longitude) + 1.2; 
-                        const detourLat = Number(trackingData.detour.hazard_latitude) - 0.4;
-                        
+                    // If a detour exists AND the driver clicked Accept (it is in the shield)
+                    if (trackingData?.detour && handledHazards.current.has(trackingData.detour.hazard_id)) {
+                        const hLng = Number(trackingData.detour.hazard_longitude);
+                        const hLat = Number(trackingData.detour.hazard_latitude);
+
+                        // 1. Get vector from current truck location to the hazard
+                        const dx = hLng - v.longitude;
+                        const dy = hLat - v.latitude;
+
+                        // 2. Find a waypoint 50% of the way to the hazard (before entering the city radius)
+                        const midLng = v.longitude + (dx * 0.5);
+                        const midLat = v.latitude + (dy * 0.5);
+
+                        // 3. Orthogonal Shift: Swap dx/dy to push the route perpendicularly onto a parallel highway
+                        const detourLng = midLng - (dy * 0.6); 
+                        const detourLat = midLat + (dx * 0.6);
+
                         osrmCoords = `${v.longitude},${v.latitude};${detourLng},${detourLat};${destLng},${destLat}`;
                     }
 
-                    // 3. Fetch using the dynamic coordinate string
                     fetch(`https://router.project-osrm.org/route/v1/driving/${osrmCoords}?overview=full&geometries=geojson`)
                     .then(res => res.json())
                     .then(data => {
@@ -365,21 +374,15 @@ export default function SmartLogisticsApp() {
     if (!trackingDeliveryId || !window.confirm(`Confirm bypass route: ${reroute.recommended_path.join(" → ")}?`)) return;
     setAcceptingReroute(true);
     try {
+      handledHazards.current.add(reroute.hazard_id); // Save to local shield
+      
       const res = await fetch("https://smart-logistics-17od.onrender.com/api/driver/accept-reroute", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        // Added hazard_id here to send to backend
         body: JSON.stringify({ delivery_id: trackingDeliveryId, hazard_id: reroute.hazard_id, new_path: reroute.recommended_path, distance_km: reroute.distance_km, eta_hours: reroute.cost_hrs, reason: reroute.reason }),
       });
       if (!res.ok) throw new Error(await res.text());
       
-      // INSTANTLY hide the popup from the screen
-      setTrackingData((prev: any) => ({ ...prev, detour: null }));
-      
-      // CLEAR the map cache so the blue line physically redraws
-      if (trackingData?.delivery?.route_id) {
-        delete osrmCache.current[trackingData.delivery.route_id];
-      }
-
+      if (trackingData?.delivery?.route_id) delete osrmCache.current[trackingData.delivery.route_id];
       fetchData();
     } catch (e: any) { alert("Reroute failed: " + e.message); } 
     finally { setAcceptingReroute(false); }
@@ -387,14 +390,13 @@ export default function SmartLogisticsApp() {
 
   const handleDeclineReroute = async (hazard_id: number) => {
     if (!trackingDeliveryId) return;
+    handledHazards.current.add(hazard_id); // Save to local shield
     try {
       const res = await fetch("https://smart-logistics-17od.onrender.com/api/driver/decline-reroute", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ delivery_id: trackingDeliveryId, hazard_id }),
       });
       if (!res.ok) throw new Error(await res.text());
-      const updatedData = await fetch(`https://smart-logistics-17od.onrender.com/api/tracking/${trackingDeliveryId}`);
-      if (updatedData.ok) setTrackingData(await updatedData.json());
     } catch (e: any) { alert("Error declining reroute: " + e.message); } 
   };
 
@@ -758,7 +760,7 @@ export default function SmartLogisticsApp() {
                 </div>
 
                 {/* DYNAMIC REROUTE PROMPT */}
-                {trackingData?.detour && !acceptingReroute && (
+                {trackingData?.detour && !acceptingReroute && !handledHazards.current.has(trackingData.detour.hazard_id) && (
                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[2000] w-[90%] max-w-lg bg-[#06182A]/95 backdrop-blur-xl border border-[#FFB547] text-white rounded-2xl p-6 shadow-[0_30px_60px_rgba(0,0,0,0.8),0_0_30px_rgba(255,181,71,0.2)] flex flex-col gap-4">
                     <div>
                       <div className="flex items-center gap-3 mb-2">
