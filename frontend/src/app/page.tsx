@@ -638,6 +638,7 @@ export default function SmartLogisticsApp() {
         </div>
       );
     }
+    
     let customDetourCoords: any[] = [];
     if (trackingData?.detour && selectedDelivery) {
         const hLng = Number(trackingData.detour.hazard_longitude || 73.8567);
@@ -895,53 +896,10 @@ export default function SmartLogisticsApp() {
             )}
           </div>
         </div>
-
-        {showNewIncidentModal && (
-          <div className="absolute inset-0 z-[2000] bg-black/70 flex items-center justify-center p-4">
-            <GlassPanel raised className="p-6 border-[#FF4568] w-full max-w-lg shadow-[0_0_50px_rgba(255,69,104,0.3)]">
-              <h4 className="text-sm font-bold text-white uppercase mb-4 tracking-wider">Report Road Hazard Ahead</h4>
-              <form onSubmit={async (e) => { 
-                e.preventDefault(); 
-                try {
-                  const res = await fetch("https://smart-logistics-17od.onrender.com/api/incidents", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(incidentForm) });
-                  if(!res.ok) {
-                    const errorData = await res.json();
-                    throw new Error(errorData.message || "Server rejected the incident.");
-                  }
-                  setShowNewIncidentModal(false); 
-                  fetchData();
-                  alert("Hazard Broadcasted! Network and Map updated.");
-                } catch (err: any) { alert(err.message); }
-              }} className="grid grid-cols-1 gap-4">
-                <div>
-                  <label className="text-xs text-[#91A9C2] uppercase mb-1 block">Hazard Type</label>
-                  <select value={incidentForm.incident_type} onChange={(e) => setIncidentForm({ ...incidentForm, incident_type: e.target.value })} className="w-full bg-[#03101E] border border-slate-700 rounded-lg p-3 text-xs text-white">
-                    <option>Road Blockage</option><option>Flood</option><option>Landslide</option><option>Accident</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-[#91A9C2] uppercase mb-1 block">Location City</label>
-                  <input type="text" required placeholder="e.g. Mumbai" value={incidentForm.location_name} onChange={(e) => setIncidentForm({ ...incidentForm, location_name: e.target.value })} className="w-full bg-[#03101E] border border-slate-700 rounded-lg p-3 text-xs text-white" />
-                </div>
-                <div>
-                  <label className="text-xs text-[#91A9C2] uppercase mb-1 block">Condition Details</label>
-                  <input type="text" required placeholder="Incident notes..." value={incidentForm.description} onChange={(e) => setIncidentForm({ ...incidentForm, description: e.target.value })} className="w-full bg-[#03101E] border border-slate-700 rounded-lg p-3 text-xs text-white" />
-                </div>
-                <div className="flex justify-end gap-3 pt-2">
-                  <button type="button" onClick={() => setShowNewIncidentModal(false)} className="px-5 py-2.5 text-xs text-slate-400 hover:text-white">Cancel</button>
-                  <button type="submit" className="px-6 py-2.5 rounded-lg bg-[#FF4568] text-white text-xs font-bold hover:bg-red-500">Broadcast</button>
-                </div>
-              </form>
-            </GlassPanel>
-          </div>
-        )}
       </div>
     );
   }
 
-  // ---------------------------------------------------------
-  // MAIN ENTERPRISE WEB SHELL
-  // ---------------------------------------------------------
   return (
     <div className="relative min-h-screen h-screen w-screen overflow-hidden text-[#EAF5FF] font-sans select-none bg-black">
       <div className="fixed inset-0 z-0 bg-cover bg-center pointer-events-none" style={{ backgroundImage: `url('/bg-theme.jpg')` }} />
