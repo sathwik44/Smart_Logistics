@@ -260,39 +260,24 @@ export default function SmartLogisticsApp() {
                         const hLat = Number(tData.detour.hazard_latitude || 18.5204);
                         const severity = tData.detour.severity || "Critical"; 
 
-                        let radiusKm = 9; 
-                        if (severity === "Critical") radiusKm = 30;
-                        else if (severity === "High") radiusKm = 24;
-                        else if (severity === "Medium") radiusKm = 18;
-
+                        const radiusKm = severity === "Critical" ? 30 : severity === "High" ? 24 : severity === "Medium" ? 18 : 9;
                         const offsetDeg = radiusKm / 111.0; 
 
-                        // 1. Overall highway vector (Source to Dest)
-                        const activeDel = deliveriesRef.current.find((d: any) => d.vehicle_number === v.vehicle_number);
-                        const sLng = Number(activeDel?.source_longitude || v.longitude);
-                        const sLat = Number(activeDel?.source_latitude || v.latitude);
-                        
-                        const dx = destLng - sLng;
-                        const dy = destLat - sLat;
+                        // Vector from Truck directly to Destination
+                        const dx = destLng - v.longitude;
+                        const dy = destLat - v.latitude;
                         const dist = Math.sqrt(dx * dx + dy * dy);
 
                         if (dist > 0) {
-                            const fX = dx / dist;
-                            const fY = dy / dist;
-                            
-                            // Perpendicular Vector (90 degrees sideways)
-                            const pX = -fY;
-                            const pY = fX;
+                            // Perpendicular Vector (perfect 90-degree shift)
+                            const pX = -dy / dist;
+                            const pY = dx / dist;
 
-                            // Waypoint 1: Exit highway before hazard, push to the side
-                            const wp1Lng = hLng - (fX * offsetDeg) + (pX * offsetDeg);
-                            const wp1Lat = hLat - (fY * offsetDeg) + (pY * offsetDeg);
+                            // ONE single waypoint, pushed perfectly sideways from the hazard (Creates a clean V-shape)
+                            const wpLng = hLng + (pX * offsetDeg);
+                            const wpLat = hLat + (pY * offsetDeg);
 
-                            // Waypoint 2: Rejoin highway after hazard, push to the side
-                            const wp2Lng = hLng + (fX * offsetDeg) + (pX * offsetDeg);
-                            const wp2Lat = hLat + (fY * offsetDeg) + (pY * offsetDeg);
-
-                            osrmCoords = `${v.longitude},${v.latitude};${wp1Lng},${wp1Lat};${wp2Lng},${wp2Lat};${destLng},${destLat}`;
+                            osrmCoords = `${v.longitude},${v.latitude};${wpLng},${wpLat};${destLng},${destLat}`;
                         }
                     }
 
@@ -661,32 +646,30 @@ export default function SmartLogisticsApp() {
         const rKm = severity === "Critical" ? 30 : severity === "High" ? 24 : severity === "Medium" ? 18 : 9;
         const oDeg = rKm / 111.0; 
 
-        const sLng = Number(selectedDelivery.source_longitude);
-        const sLat = Number(selectedDelivery.source_latitude);
+        const liveTruck = vehicles.find(v => v.vehicle_number === selectedDelivery.vehicle_number);
+        const sLng = Number(liveTruck?.longitude || selectedDelivery.source_longitude);
+        const sLat = Number(liveTruck?.latitude || selectedDelivery.source_latitude);
         const dLng = Number(selectedDelivery.destination_longitude);
         const dLat = Number(selectedDelivery.destination_latitude);
 
+        // Vector from Truck to Destination
         const dx = dLng - sLng;
         const dy = dLat - sLat;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
         if (dist > 0) {
-            const fX = dx / dist;
-            const fY = dy / dist;
-            const pX = -fY;
-            const pY = fX; 
+            // Perpendicular Vector (90-degree push)
+            const pX = -dy / dist;
+            const pY = dx / dist; 
 
-            const wp1Lng = hLng - (fX * oDeg) + (pX * oDeg);
-            const wp1Lat = hLat - (fY * oDeg) + (pY * oDeg);
-            const wp2Lng = hLng + (fX * oDeg) + (pX * oDeg);
-            const wp2Lat = hLat + (fY * oDeg) + (pY * oDeg);
+            // ONE single waypoint, pushed perfectly sideways from the hazard (V-shape)
+            const wpLng = hLng + (pX * oDeg);
+            const wpLat = hLat + (pY * oDeg);
 
-            const liveTruck = vehicles.find(v => v.vehicle_number === selectedDelivery.vehicle_number);
             customDetourCoords = [
-                { lat: Number(liveTruck?.latitude || sLat), lng: Number(liveTruck?.longitude || sLng) },
-                { lat: Number(wp1Lat), lng: Number(wp1Lng) },
-                { lat: Number(wp2Lat), lng: Number(wp2Lng) },
-                { lat: Number(dLat), lng: Number(dLng) }
+                { lat: sLat, lng: sLng },
+                { lat: wpLat, lng: wpLng },
+                { lat: dLat, lng: dLng }
             ];
         }
     }
