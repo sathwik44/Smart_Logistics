@@ -643,7 +643,8 @@ export default function SmartLogisticsApp() {
     const detourData = trackingData?.detour;
     const hId = detourData?.hazard_id;
 
-    if (detourData && selectedDelivery && !handledHazards.includes(hId)) {
+    // FIX 1: Removed !handledHazards so the yellow math keeps calculating after Accept
+    if (detourData && selectedDelivery) {
         const hLng = Number(detourData.hazard_longitude || 73.8567);
         const hLat = Number(detourData.hazard_latitude || 18.5204);
         const severity = detourData.severity || "Critical"; 
@@ -664,14 +665,13 @@ export default function SmartLogisticsApp() {
             const pX = -dy / dist;
             const pY = dx / dist; 
 
-            // ONE single waypoint, pushed perfectly sideways from the hazard (V-shape)
             const wpLng = hLng + (pX * oDeg);
             const wpLat = hLat + (pY * oDeg);
 
             customDetourCoords = [
-                [sLat, sLng],
-                [wpLat, wpLng],
-                [dLat, dLng]
+                { lat: sLat, lng: sLng },
+                { lat: wpLat, lng: wpLng },
+                { lat: dLat, lng: dLng }
             ];
         }
     }
@@ -679,12 +679,11 @@ export default function SmartLogisticsApp() {
     const currSeverity = detourData?.severity || "Critical";
     const currRadius = currSeverity === "Critical" ? 30 : currSeverity === "High" ? 24 : currSeverity === "Medium" ? 18 : 9;
 
-    const activeDetourRoute = (detourData && !handledHazards.includes(hId)) ? [{
+    // FIX 2: Removed !handledHazards so the yellow line stays painted on the map forever
+    const activeDetourRoute = detourData ? [{
       id: "detour-1", type: "Alternative", algorithm: `AI Vector Barrier (${currRadius}km Clearance)`,
       path: ["Current Location", `Safe Bypass`, selectedDelivery?.destination || "Destination"],
-      nodes_coords: customDetourCoords.length > 0 
-          ? customDetourCoords.map(c => ({ lat: c[0], lng: c[1] })) 
-          : detourData.detour_waypoints?.map((c: any) => ({ lat: Number(c[0]), lng: Number(c[1]) })) || [],
+      nodes_coords: customDetourCoords,
       cost_hrs: detourData.cost_hrs || 0, distance_km: detourData.distance_km || 0
     }] : [];
 
