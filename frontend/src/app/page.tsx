@@ -1478,7 +1478,11 @@ export default function SmartLogisticsApp() {
                           </td>
                           <td className="py-3 px-3 text-right">
                             {(d.status === "In Transit" || d.status === "Paused") && (
-                              <button onClick={() => { setTrackingDeliveryId(d.id); setActiveTab("Live Tracking"); }} className="px-3 py-1.5 rounded-lg bg-[#19D8F2]/20 border border-[#19D8F2]/50 text-[#19D8F2] hover:bg-[#19D8F2]/30 text-[10px] font-bold">
+                              <button onClick={() => { 
+                                setActiveTab("Live Fleet");
+                                const truck = vehicles.find(v => v.vehicle_number === d.vehicle_number);
+                                if (truck) setSelectedVehicle(truck);
+                              }} className="px-3 py-1.5 rounded-lg bg-[#19D8F2]/20 border border-[#19D8F2]/50 text-[#19D8F2] hover:bg-[#19D8F2]/30 text-[10px] font-bold">
                                 Track Live ↗
                               </button>
                             )}
