@@ -223,9 +223,10 @@ export default function SmartLogisticsApp() {
 
                     // 2. If a reroute is active, inject a detour waypoint to bend the line
                     // (Make sure 'activeHazard' matches the actual variable name holding your hazard data in this file)
-                    if (activeHazard && activeHazard.longitude && activeHazard.latitude) {
-                        const detourLng = Number(activeHazard.longitude) + 0.5; // Offsets the route by ~50km
-                        const detourLat = Number(activeHazard.latitude) + 0.5;
+                    // 2. If a reroute is active, inject a detour waypoint to bend the line
+                    if (hazard && hazard.longitude && hazard.latitude) {
+                        const detourLng = Number(hazard.longitude) + 0.5; 
+                        const detourLat = Number(hazard.latitude) + 0.5;
                         
                         // New 3-point route: Source -> Detour -> Destination
                         osrmCoords = `${activeDel.source_longitude},${activeDel.source_latitude};${detourLng},${detourLat};${destLng},${destLat}`;
