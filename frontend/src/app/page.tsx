@@ -222,11 +222,10 @@ export default function SmartLogisticsApp() {
                     let osrmCoords = `${activeDel.source_longitude},${activeDel.source_latitude};${destLng},${destLat}`;
 
                     // 2. If a reroute is active, inject a detour waypoint to bend the line
-                    // (Make sure 'activeHazard' matches the actual variable name holding your hazard data in this file)
-                    // 2. If a reroute is active, inject a detour waypoint to bend the line
-                    if (hazard && hazard.longitude && hazard.latitude) {
-                        const detourLng = Number(hazard.longitude) + 0.5; 
-                        const detourLat = Number(hazard.latitude) + 0.5;
+                    // Pulling the hazard coordinates from the active trackingData detour state
+                    if (trackingData && trackingData.detour && trackingData.detour.hazard_longitude && trackingData.detour.hazard_latitude) {
+                        const detourLng = Number(trackingData.detour.hazard_longitude) + 0.5; 
+                        const detourLat = Number(trackingData.detour.hazard_latitude) + 0.5;
                         
                         // New 3-point route: Source -> Detour -> Destination
                         osrmCoords = `${activeDel.source_longitude},${activeDel.source_latitude};${detourLng},${detourLat};${destLng},${destLat}`;
