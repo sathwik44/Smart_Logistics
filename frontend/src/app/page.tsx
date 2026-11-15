@@ -218,17 +218,16 @@ export default function SmartLogisticsApp() {
                   if (!osrmCache.current[rId]) {
                     osrmCache.current[rId] = "FETCHING";
                     
-                    // 1. Start with the default 2-point route (Source -> Destination)
-                    let osrmCoords = `${activeDel.source_longitude},${activeDel.source_latitude};${destLng},${destLat}`;
+                    // 1. Calculate from CURRENT TRUCK LOCATION (v.longitude, v.latitude)
+                    let osrmCoords = `${v.longitude},${v.latitude};${destLng},${destLat}`;
 
-                    // 2. If a reroute is active, inject a detour waypoint to bend the line
-                    // Pulling the hazard coordinates from the active trackingData detour state
+                    // 2. Dynamic Wide Bypass BEFORE the hazard
                     if (trackingData && trackingData.detour && trackingData.detour.hazard_longitude && trackingData.detour.hazard_latitude) {
-                        const detourLng = Number(trackingData.detour.hazard_longitude) + 0.5; 
-                        const detourLat = Number(trackingData.detour.hazard_latitude) + 0.5;
+                        // Wide offset to cleanly skirt around the city instead of a tight U-turn
+                        const detourLng = Number(trackingData.detour.hazard_longitude) + 1.2; 
+                        const detourLat = Number(trackingData.detour.hazard_latitude) - 0.4;
                         
-                        // New 3-point route: Source -> Detour -> Destination
-                        osrmCoords = `${activeDel.source_longitude},${activeDel.source_latitude};${detourLng},${detourLat};${destLng},${destLat}`;
+                        osrmCoords = `${v.longitude},${v.latitude};${detourLng},${detourLat};${destLng},${destLat}`;
                     }
 
                     // 3. Fetch using the dynamic coordinate string
@@ -368,13 +367,20 @@ export default function SmartLogisticsApp() {
     try {
       const res = await fetch("https://smart-logistics-17od.onrender.com/api/driver/accept-reroute", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ delivery_id: trackingDeliveryId, new_path: reroute.recommended_path, distance_km: reroute.distance_km, eta_hours: reroute.cost_hrs, reason: reroute.reason }),
+        // Added hazard_id here to send to backend
+        body: JSON.stringify({ delivery_id: trackingDeliveryId, hazard_id: reroute.hazard_id, new_path: reroute.recommended_path, distance_km: reroute.distance_km, eta_hours: reroute.cost_hrs, reason: reroute.reason }),
       });
       if (!res.ok) throw new Error(await res.text());
-      const updatedData = await fetch(`https://smart-logistics-17od.onrender.com/api/tracking/${trackingDeliveryId}`);
-      if (updatedData.ok) setTrackingData(await updatedData.json());
+      
+      // INSTANTLY hide the popup from the screen
+      setTrackingData((prev: any) => ({ ...prev, detour: null }));
+      
+      // CLEAR the map cache so the blue line physically redraws
+      if (trackingData?.delivery?.route_id) {
+        delete osrmCache.current[trackingData.delivery.route_id];
+      }
+
       fetchData();
-      alert("Route successfully bypassed! OSRM Geometry updated.");
     } catch (e: any) { alert("Reroute failed: " + e.message); } 
     finally { setAcceptingReroute(false); }
   };

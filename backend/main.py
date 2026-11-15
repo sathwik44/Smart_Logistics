@@ -332,7 +332,23 @@ def decline_reroute(req: RerouteDeclineRequest):
 
 @app.post("/api/driver/accept-reroute")
 def accept_reroute(req: dict = Body(...)):
+    delivery_id = req.get("delivery_id")
+    hazard_id = req.get("hazard_id")
+    
+    if delivery_id and hazard_id:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        try:
+            # Add to declined_hazards just to mark it as 'handled' so the system stops popping it up
+            cur.execute("UPDATE deliveries SET declined_hazards = array_append(COALESCE(declined_hazards, '{}'), %s) WHERE id = %s;", (hazard_id, delivery_id))
+            cur.execute("INSERT INTO delivery_events (delivery_id, event_type, message) VALUES (%s, 'REROUTE_ACCEPTED', 'Driver bypassed hazard via AI detour.');", (delivery_id,))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+        finally:
+            conn.close()
     return {"status": "Reroute Accepted"}
+
 
 @app.get("/api/tracking/{delivery_id}")
 def get_tracking(delivery_id: int):
