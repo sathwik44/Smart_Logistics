@@ -84,7 +84,7 @@ export default function SmartLogisticsApp() {
   const [selectedVehicle, setSelectedVehicle] = useState<any | null>(null);
   const [selectedRoute, setSelectedRoute] = useState<any | null>(null);
   const [selectedDelivery, setSelectedDelivery] = useState<any | null>(null);
-  const [routeDetailTab, setRouteDetailTab] = useState("Overview");
+  const [selectedIncident, setSelectedIncident] = useState<any | null>(null);
 
   const [trackingDeliveryId, setTrackingDeliveryId] = useState<number | null>(null);
   const [trackingData, setTrackingData] = useState<any>(null);
