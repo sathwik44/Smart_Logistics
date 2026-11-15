@@ -152,11 +152,11 @@ export default function SmartLogisticsApp() {
   const fetchData = async () => {
     try {
       const [vRes, rRes, dRes, iRes, drRes] = await Promise.all([
-        fetch("http://localhost:8000/api/vehicles").catch(() => null),
-        fetch("http://localhost:8000/api/routes").catch(() => null),
-        fetch("http://localhost:8000/api/deliveries").catch(() => null),
-        fetch("http://localhost:8000/api/incidents").catch(() => null),
-        fetch("http://localhost:8000/api/drivers").catch(() => null),
+        fetch("[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/vehicles").catch(() => null),
+        fetch("[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/routes").catch(() => null),
+        fetch("[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/deliveries").catch(() => null),
+        fetch("[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/incidents").catch(() => null),
+        fetch("[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/drivers").catch(() => null),
       ]);
       const vData = vRes && vRes.ok ? await vRes.json() : null;
       const rData = rRes && rRes.ok ? await rRes.json() : null;
@@ -189,7 +189,7 @@ export default function SmartLogisticsApp() {
 
   const completeDelivery = async (deliveryId: number) => {
     try {
-      await fetch(`http://localhost:8000/api/deliveries/${deliveryId}/complete`, { method: "POST" });
+      await fetch(`[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/deliveries/${deliveryId}/complete`, { method: "POST" });
       fetchData();
     } catch (e) {}
   };
@@ -234,7 +234,7 @@ export default function SmartLogisticsApp() {
                   const dist = Math.sqrt(dLat * dLat + dLng * dLng);
                   
                   if (dist < 0.08) {
-                      fetch(`http://localhost:8000/api/vehicles/${v.id}/position`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ latitude: destLat, longitude: destLng, status: "Idle" }) }).catch(() => {});
+                      fetch(`[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/vehicles/${v.id}/position`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ latitude: destLat, longitude: destLng, status: "Idle" }) }).catch(() => {});
                       completeDelivery(activeDel.id);
                       return { ...v, status: "Idle", latitude: destLat, longitude: destLng, lastIdx: 0 };
                   }
@@ -243,7 +243,7 @@ export default function SmartLogisticsApp() {
                   const ratio = speed / dist;
                   const newLat = v.latitude + dLat * ratio;
                   const newLng = v.longitude + dLng * ratio;
-                  fetch(`http://localhost:8000/api/vehicles/${v.id}/position`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ latitude: newLat, longitude: newLng, status: "In Transit" }) }).catch(() => {});
+                  fetch(`[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/vehicles/${v.id}/position`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ latitude: newLat, longitude: newLng, status: "In Transit" }) }).catch(() => {});
                   return { ...v, latitude: newLat, longitude: newLng, lastIdx: 0 };
               }
 
@@ -254,7 +254,7 @@ export default function SmartLogisticsApp() {
                   
                   // If we reached the end of the array, snap to destination and mark idle
                   if (currentIdx >= path.length - 2) {
-                      fetch(`http://localhost:8000/api/vehicles/${v.id}/position`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ latitude: destLat, longitude: destLng, status: "Idle" }) }).catch(() => {});
+                      fetch(`[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/vehicles/${v.id}/position`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ latitude: destLat, longitude: destLng, status: "Idle" }) }).catch(() => {});
                       completeDelivery(activeDel.id);
                       return { ...v, status: "Idle", latitude: destLat, longitude: destLng, lastIdx: 0 };
                   }
@@ -263,7 +263,7 @@ export default function SmartLogisticsApp() {
                   let nextIdx = Math.min(currentIdx + 6, path.length - 1);
                   const targetPoint = path[nextIdx];
                   
-                  fetch(`http://localhost:8000/api/vehicles/${v.id}/position`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ latitude: targetPoint[0], longitude: targetPoint[1], status: "In Transit" }) }).catch(() => {});
+                  fetch(`[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/vehicles/${v.id}/position`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ latitude: targetPoint[0], longitude: targetPoint[1], status: "In Transit" }) }).catch(() => {});
                   
                   return { ...v, latitude: targetPoint[0], longitude: targetPoint[1], lastIdx: nextIdx };
               }
@@ -334,7 +334,7 @@ export default function SmartLogisticsApp() {
     if ((activeTab !== "Live Tracking" && !isDriverMode) || !trackingDeliveryId) return;
     const fetchLiveTracking = async () => {
       try {
-        const res = await fetch(`http://localhost:8000/api/tracking/${trackingDeliveryId}`);
+        const res = await fetch(`[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/tracking/${trackingDeliveryId}`);
         if (res.ok) {
           const data = await res.json();
           setTrackingData(data);
@@ -351,12 +351,12 @@ export default function SmartLogisticsApp() {
     if (!trackingDeliveryId || !window.confirm(`Confirm bypass route: ${reroute.recommended_path.join(" → ")}?`)) return;
     setAcceptingReroute(true);
     try {
-      const res = await fetch("http://localhost:8000/api/driver/accept-reroute", {
+      const res = await fetch("[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/driver/accept-reroute", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ delivery_id: trackingDeliveryId, new_path: reroute.recommended_path, distance_km: reroute.distance_km, eta_hours: reroute.cost_hrs, reason: reroute.reason }),
       });
       if (!res.ok) throw new Error(await res.text());
-      const updatedData = await fetch(`http://localhost:8000/api/tracking/${trackingDeliveryId}`);
+      const updatedData = await fetch(`[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/tracking/${trackingDeliveryId}`);
       if (updatedData.ok) setTrackingData(await updatedData.json());
       fetchData();
       alert("Route successfully bypassed! OSRM Geometry updated.");
@@ -367,12 +367,12 @@ export default function SmartLogisticsApp() {
   const handleDeclineReroute = async (hazard_id: number) => {
     if (!trackingDeliveryId) return;
     try {
-      const res = await fetch("http://localhost:8000/api/driver/decline-reroute", {
+      const res = await fetch("[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/driver/decline-reroute", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ delivery_id: trackingDeliveryId, hazard_id }),
       });
       if (!res.ok) throw new Error(await res.text());
-      const updatedData = await fetch(`http://localhost:8000/api/tracking/${trackingDeliveryId}`);
+      const updatedData = await fetch(`[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/tracking/${trackingDeliveryId}`);
       if (updatedData.ok) setTrackingData(await updatedData.json());
     } catch (e: any) { alert("Error declining reroute: " + e.message); } 
   };
@@ -380,7 +380,7 @@ export default function SmartLogisticsApp() {
   const handlePauseResumeTrip = async (action: "pause" | "resume") => {
     if (!trackingDeliveryId) return;
     try {
-      const res = await fetch(`http://localhost:8000/api/driver/${action}-trip/${trackingDeliveryId}`, { method: "POST" });
+      const res = await fetch(`[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/driver/${action}-trip/${trackingDeliveryId}`, { method: "POST" });
       if (!res.ok) throw new Error(await res.text());
       
       setIsTripPaused(action === "pause");
@@ -393,7 +393,7 @@ export default function SmartLogisticsApp() {
   const handleVehicleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch("http://localhost:8000/api/vehicles", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(vehicleForm) });
+      const res = await fetch("[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/vehicles", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(vehicleForm) });
       if(!res.ok) throw new Error(await res.text());
       setVehicleForm({ vehicle_number: "", vehicle_type: "Truck", status: "Idle" });
       fetchData();
@@ -404,7 +404,7 @@ export default function SmartLogisticsApp() {
   const handleDriverSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch("http://localhost:8000/api/drivers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: driverForm.name, efficiency_score: Number(driverForm.efficiency_score) }) });
+      const res = await fetch("[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/drivers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: driverForm.name, efficiency_score: Number(driverForm.efficiency_score) }) });
       if(!res.ok) throw new Error(await res.text());
       setDriverForm({ name: "", efficiency_score: 90.0 });
       fetchData();
@@ -415,7 +415,7 @@ export default function SmartLogisticsApp() {
   const handleRouteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch("http://localhost:8000/api/routes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...routeForm, distance_km: Number(routeForm.distance_km), eta_hours: Number(routeForm.eta_hours) }) });
+      const res = await fetch("[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/routes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...routeForm, distance_km: Number(routeForm.distance_km), eta_hours: Number(routeForm.eta_hours) }) });
       if(!res.ok) throw new Error(await res.text());
       setShowNewRouteModal(false);
       fetchData();
@@ -425,7 +425,7 @@ export default function SmartLogisticsApp() {
   const handleDeliverySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch("http://localhost:8000/api/deliveries", {
+      const res = await fetch("[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/deliveries", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ vehicle_id: Number(deliveryForm.vehicle_id), route_id: Number(deliveryForm.route_id), goods: deliveryForm.goods, driver_name: deliveryForm.driver_name || "Unassigned", priority: "Standard", status: "Pending" }),
       });
@@ -439,7 +439,7 @@ export default function SmartLogisticsApp() {
   const handleIncidentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch("http://localhost:8000/api/incidents", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(incidentForm) });
+      const res = await fetch("[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/incidents", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(incidentForm) });
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.message || "Server rejected the incident.");
@@ -455,7 +455,7 @@ export default function SmartLogisticsApp() {
 
   const resolveIncident = async (id: number) => {
     try {
-      await fetch(`http://localhost:8000/api/incidents/${id}/resolve`, { method: "PATCH" });
+      await fetch(`[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/incidents/${id}/resolve`, { method: "PATCH" });
       fetchData(); 
     } catch(e) {}
   };
@@ -466,7 +466,7 @@ export default function SmartLogisticsApp() {
     let windspeed = weatherData?.wind || 12.0;
     let is_raining = (weatherData?.code || 0) >= 51 ? 1 : 0;
     try {
-      const res = await fetch(`http://localhost:8000/api/routes/${route.id}/predict`, {
+      const res = await fetch(`[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/routes/${route.id}/predict`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ windspeed: Number(windspeed), is_raining: Number(is_raining) }),
       });
@@ -486,7 +486,7 @@ export default function SmartLogisticsApp() {
     const matchedRoute = routes.find((r) => r.id === delivery.route_id || (r.source === delivery.source && r.destination === delivery.destination));
     const validRouteId = Number(delivery.route_id || matchedRoute?.id || routes[0]?.id || 1);
     try {
-      const res = await fetch(`http://localhost:8000/api/deliveries/predict_delay`, {
+      const res = await fetch(`[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/deliveries/predict_delay`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ driver_name: String(delivery.driver_name || "Unassigned"), route_id: validRouteId, windspeed: Number(weatherData?.wind || 12.0), is_raining: Number((weatherData?.code || 0) >= 51 ? 1 : 0) }),
       });
@@ -502,7 +502,7 @@ export default function SmartLogisticsApp() {
     setPlannerError("");
     setIsPlanning(true);
     try {
-      const res = await fetch("http://localhost:8000/api/routes/plan", {
+      const res = await fetch("[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/routes/plan", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ source: plannerForm.source, destination: plannerForm.destination }),
       });
@@ -544,7 +544,7 @@ export default function SmartLogisticsApp() {
 
   const loadDriverDeliveries = async () => {
     try {
-      const res = await fetch(`http://localhost:8000/api/driver/my-deliveries?driver_name=${encodeURIComponent(driverPortalState.name)}`);
+      const res = await fetch(`[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/driver/my-deliveries?driver_name=${encodeURIComponent(driverPortalState.name)}`);
       if (res.ok) {
         const data = await res.json();
         setDriverDeliveries(data);
@@ -624,7 +624,7 @@ export default function SmartLogisticsApp() {
                       <button 
                         onClick={async (e) => { 
                           e.stopPropagation(); 
-                          await fetch(`http://localhost:8000/api/driver/start-trip/${del.id}`, { method: "POST" }); 
+                          await fetch(`[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/driver/start-trip/${del.id}`, { method: "POST" }); 
                           setTrackingDeliveryId(del.id); // <--- Instantly opens the driving HUD!
                           loadDriverDeliveries(); 
                           fetchData(); 
@@ -805,7 +805,7 @@ export default function SmartLogisticsApp() {
               <form onSubmit={async (e) => { 
                 e.preventDefault(); 
                 try {
-                  const res = await fetch("http://localhost:8000/api/incidents", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(incidentForm) });
+                  const res = await fetch("[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/incidents", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(incidentForm) });
                   if(!res.ok) {
                     const errorData = await res.json();
                     throw new Error(errorData.message || "Server rejected the incident.");
@@ -1340,7 +1340,7 @@ export default function SmartLogisticsApp() {
                         <div className="flex justify-between text-xs text-[#91A9C2]">
                           <span>Distance: {p.distance_km} km</span>
                           <button onClick={async () => {
-                            await fetch("http://localhost:8000/api/routes", {
+                            await fetch("[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/routes", {
                               method: "POST", headers: { "Content-Type": "application/json" },
                               body: JSON.stringify({ source: plannerForm.source, destination: plannerForm.destination, distance_km: p.distance_km, eta_hours: p.cost_hrs, status: "Active" })
                             });
