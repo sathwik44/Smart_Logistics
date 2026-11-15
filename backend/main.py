@@ -320,9 +320,9 @@ def resume_trip(delivery_id: int):
 def decline_reroute(req: RerouteDeclineRequest):
     conn = get_db_connection()
     cur = conn.cursor()
-    # Safe fallback if declined_hazards doesn't exist
     try:
-        cur.execute("UPDATE deliveries SET declined_hazards = array_append(declined_hazards, %s) WHERE id = %s;", (req.hazard_id, req.delivery_id))
+        # COALESCE added here to fix the infinite popup loop
+        cur.execute("UPDATE deliveries SET declined_hazards = array_append(COALESCE(declined_hazards, '{}'), %s) WHERE id = %s;", (req.hazard_id, req.delivery_id))
     except Exception:
         conn.rollback()
     cur.execute("INSERT INTO delivery_events (delivery_id, event_type, message) VALUES (%s, 'REROUTE_DECLINED', 'Driver opted to stay on original route.');", (req.delivery_id,))

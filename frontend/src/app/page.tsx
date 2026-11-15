@@ -217,7 +217,22 @@ export default function SmartLogisticsApp() {
               if (!osrmCache.current[rId] || osrmCache.current[rId] === "FETCHING") {
                   if (!osrmCache.current[rId]) {
                     osrmCache.current[rId] = "FETCHING";
-                    fetch(`https://router.project-osrm.org/route/v1/driving/${activeDel.source_longitude},${activeDel.source_latitude};${destLng},${destLat}?overview=full&geometries=geojson`)
+                    
+                    // 1. Start with the default 2-point route (Source -> Destination)
+                    let osrmCoords = `${activeDel.source_longitude},${activeDel.source_latitude};${destLng},${destLat}`;
+
+                    // 2. If a reroute is active, inject a detour waypoint to bend the line
+                    // (Make sure 'activeHazard' matches the actual variable name holding your hazard data in this file)
+                    if (activeHazard && activeHazard.longitude && activeHazard.latitude) {
+                        const detourLng = Number(activeHazard.longitude) + 0.5; // Offsets the route by ~50km
+                        const detourLat = Number(activeHazard.latitude) + 0.5;
+                        
+                        // New 3-point route: Source -> Detour -> Destination
+                        osrmCoords = `${activeDel.source_longitude},${activeDel.source_latitude};${detourLng},${detourLat};${destLng},${destLat}`;
+                    }
+
+                    // 3. Fetch using the dynamic coordinate string
+                    fetch(`https://router.project-osrm.org/route/v1/driving/${osrmCoords}?overview=full&geometries=geojson`)
                     .then(res => res.json())
                     .then(data => {
                         if (data.routes?.[0]) { 
