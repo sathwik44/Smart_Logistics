@@ -92,7 +92,14 @@ export default function SmartLogisticsApp() {
   const [acceptingReroute, setAcceptingReroute] = useState(false);
   const [isTripPaused, setIsTripPaused] = useState(false);
   const [isMarkedArrived, setIsMarkedArrived] = useState(false);
-  const handledHazards = useRef<Set<number>>(new Set());
+  
+  // Clean Memory Shield for the popup and vector math
+  const [handledHazards, setHandledHazards] = useState<number[]>([]);
+  const handledHazardsRef = useRef<number[]>([]);
+  useEffect(() => { handledHazardsRef.current = handledHazards; }, [handledHazards]);
+
+  const trackingDataRef = useRef<any>(null);
+  useEffect(() => { trackingDataRef.current = trackingData; }, [trackingData]);
 
   const [mapLayers, setMapLayers] = useState({ vehicles: true, routes: true, incidents: true, weather: true });
   const handleToggleLayer = (key: string) => { setMapLayers((prev: any) => ({ ...prev, [key]: !prev[key] })); };
@@ -220,24 +227,41 @@ export default function SmartLogisticsApp() {
                     osrmCache.current[rId] = "FETCHING";
                     let osrmCoords = `${v.longitude},${v.latitude};${destLng},${destLat}`;
 
-                    // If a detour exists AND the driver clicked Accept (it is in the shield)
-                    if (trackingData?.detour && handledHazards.current.has(trackingData.detour.hazard_id)) {
-                        const hLng = Number(trackingData.detour.hazard_longitude);
-                        const hLat = Number(trackingData.detour.hazard_latitude);
+                    // Read from the live references to beat the stale closure!
+                    const tData = trackingDataRef.current;
+                    const hHazards = handledHazardsRef.current;
 
-                        // 1. Get vector from current truck location to the hazard
+                    // If detour exists AND driver accepted it
+                    if (tData?.detour && hHazards.includes(tData.detour.hazard_id)) {
+                        const hLng = Number(tData.detour.hazard_longitude);
+                        const hLat = Number(tData.detour.hazard_latitude);
+                        const severity = tData.detour.severity || "High"; 
+
+                        // Your Exact Radius Rules (converted to km)
+                        let radiusKm = 9; // Low
+                        if (severity === "Critical") radiusKm = 30;
+                        else if (severity === "High") radiusKm = 24;
+                        else if (severity === "Medium") radiusKm = 18;
+
+                        // 1 map degree is approx 111 km
+                        const offsetDegrees = radiusKm / 111.0; 
+
+                        // 1. Vector from truck to hazard
                         const dx = hLng - v.longitude;
                         const dy = hLat - v.latitude;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
 
-                        // 2. Find a waypoint 50% of the way to the hazard (before entering the city radius)
-                        const midLng = v.longitude + (dx * 0.5);
-                        const midLat = v.latitude + (dy * 0.5);
+                        if (dist > 0) {
+                            // 2. Normalized perpendicular vector (90-degree shift)
+                            const perpX = -dy / dist;
+                            const perpY = dx / dist;
 
-                        // 3. Orthogonal Shift: Swap dx/dy to push the route perpendicularly onto a parallel highway
-                        const detourLng = midLng - (dy * 0.6); 
-                        const detourLat = midLat + (dx * 0.6);
+                            // 3. Shove the waypoint outward by the exact safe radius
+                            const detourLng = hLng + (perpX * offsetDegrees);
+                            const detourLat = hLat + (perpY * offsetDegrees);
 
-                        osrmCoords = `${v.longitude},${v.latitude};${detourLng},${detourLat};${destLng},${destLat}`;
+                            osrmCoords = `${v.longitude},${v.latitude};${detourLng},${detourLat};${destLng},${destLat}`;
+                        }
                     }
 
                     fetch(`https://router.project-osrm.org/route/v1/driving/${osrmCoords}?overview=full&geometries=geojson`)
@@ -374,7 +398,7 @@ export default function SmartLogisticsApp() {
     if (!trackingDeliveryId || !window.confirm(`Confirm bypass route: ${reroute.recommended_path.join(" → ")}?`)) return;
     setAcceptingReroute(true);
     try {
-      handledHazards.current.add(reroute.hazard_id); // Save to local shield
+      setHandledHazards(prev => [...prev, reroute.hazard_id]); // INSTANT HIDE
       
       const res = await fetch("https://smart-logistics-17od.onrender.com/api/driver/accept-reroute", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -390,14 +414,13 @@ export default function SmartLogisticsApp() {
 
   const handleDeclineReroute = async (hazard_id: number) => {
     if (!trackingDeliveryId) return;
-    handledHazards.current.add(hazard_id); // Save to local shield
+    setHandledHazards(prev => [...prev, hazard_id]); // INSTANT HIDE
     try {
       const res = await fetch("https://smart-logistics-17od.onrender.com/api/driver/decline-reroute", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ delivery_id: trackingDeliveryId, hazard_id }),
       });
-      if (!res.ok) throw new Error(await res.text());
-    } catch (e: any) { alert("Error declining reroute: " + e.message); } 
+    } catch (e: any) { console.error(e); } 
   };
 
   const handlePauseResumeTrip = async (action: "pause" | "resume") => {
@@ -760,7 +783,7 @@ export default function SmartLogisticsApp() {
                 </div>
 
                 {/* DYNAMIC REROUTE PROMPT */}
-                {trackingData?.detour && !acceptingReroute && !handledHazards.current.has(trackingData.detour.hazard_id) && (
+                {trackingData?.detour && !acceptingReroute && !handledHazards.includes(trackingData.detour.hazard_id) && (
                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[2000] w-[90%] max-w-lg bg-[#06182A]/95 backdrop-blur-xl border border-[#FFB547] text-white rounded-2xl p-6 shadow-[0_30px_60px_rgba(0,0,0,0.8),0_0_30px_rgba(255,181,71,0.2)] flex flex-col gap-4">
                     <div>
                       <div className="flex items-center gap-3 mb-2">
