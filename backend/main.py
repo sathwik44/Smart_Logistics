@@ -6,7 +6,7 @@ import urllib.parse
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import psycopg2
@@ -331,7 +331,7 @@ def decline_reroute(req: RerouteDeclineRequest):
     return {"status": "Declined recorded"}
 
 @app.post("/api/driver/accept-reroute")
-def accept_reroute(req: Any):
+def accept_reroute(req: dict = Body(...)):
     return {"status": "Reroute Accepted"}
 
 @app.get("/api/tracking/{delivery_id}")
