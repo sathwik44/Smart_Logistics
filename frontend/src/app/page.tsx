@@ -669,9 +669,9 @@ export default function SmartLogisticsApp() {
             const wpLat = hLat + (pY * oDeg);
 
             customDetourCoords = [
-                { lat: sLat, lng: sLng },
-                { lat: wpLat, lng: wpLng },
-                { lat: dLat, lng: dLng }
+                [sLat, sLng],
+                [wpLat, wpLng],
+                [dLat, dLng]
             ];
         }
     }
@@ -682,7 +682,9 @@ export default function SmartLogisticsApp() {
     const activeDetourRoute = (detourData && !handledHazards.includes(hId)) ? [{
       id: "detour-1", type: "Alternative", algorithm: `AI Vector Barrier (${currRadius}km Clearance)`,
       path: ["Current Location", `Safe Bypass`, selectedDelivery?.destination || "Destination"],
-      nodes_coords: customDetourCoords,
+      nodes_coords: customDetourCoords.length > 0 
+          ? customDetourCoords.map(c => ({ lat: c[0], lng: c[1] })) 
+          : detourData.detour_waypoints?.map((c: any) => ({ lat: Number(c[0]), lng: Number(c[1]) })) || [],
       cost_hrs: detourData.cost_hrs || 0, distance_km: detourData.distance_km || 0
     }] : [];
 
