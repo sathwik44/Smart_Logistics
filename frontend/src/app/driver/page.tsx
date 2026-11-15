@@ -25,7 +25,7 @@ export default function DriverPortalPage() {
 
   const loadDriverDeliveries = async () => {
     try {
-      const res = await fetch(`[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/driver/my-deliveries?driver_name=${encodeURIComponent(driverName)}`);
+      const res = await fetch(`https://smart-logistics-backend.onrender.com/api/driver/my-deliveries?driver_name=${encodeURIComponent(driverName)}`);
       if (res.ok) {
         const data = await res.json();
         setDeliveries(data);
@@ -38,7 +38,7 @@ export default function DriverPortalPage() {
     if (!selectedDelivery) return;
     const fetchTrip = async () => {
       try {
-        const res = await fetch(`[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/tracking/${selectedDelivery.id}`);
+        const res = await fetch(`https://smart-logistics-backend.onrender.com/api/tracking/${selectedDelivery.id}`);
         if (res.ok) setTrackingData(await res.json());
       } catch {}
     };
@@ -49,7 +49,7 @@ export default function DriverPortalPage() {
 
   const handleIncidentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await fetch("[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/incidents", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(incidentForm) });
+    await fetch("https://smart-logistics-backend.onrender.com/api/incidents", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(incidentForm) });
     setReportModal(false);
     alert("Hazard reported to central dispatcher.");
   };
@@ -91,10 +91,10 @@ export default function DriverPortalPage() {
               <div className="flex justify-between items-start mb-1.5"><span className="font-bold text-sm text-white">#{del.id} {del.goods}</span><span className={`px-2 py-0.5 rounded text-[10px] font-bold ${del.status === "In Transit" ? "bg-[#16D6B0]/20 text-[#16D6B0]" : "bg-[#FFB547]/20 text-[#FFB547]"}`}>{del.status}</span></div>
               <div className="text-xs text-[#91A9C2] mb-3">{del.source} → {del.destination}</div>
               {del.status === "Pending" && (
-                <button onClick={async (e) => { e.stopPropagation(); await fetch(`[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/driver/start-trip/${del.id}`, { method: "POST" }); loadDriverDeliveries(); }} className="w-full py-2 rounded-lg bg-[#16D6B0] text-[#03101E] font-bold text-xs">Start Trip</button>
+                <button onClick={async (e) => { e.stopPropagation(); await fetch(`https://smart-logistics-backend.onrender.com/api/driver/start-trip/${del.id}`, { method: "POST" }); loadDriverDeliveries(); }} className="w-full py-2 rounded-lg bg-[#16D6B0] text-[#03101E] font-bold text-xs">Start Trip</button>
               )}
               {del.status === "In Transit" && (
-                <button onClick={async (e) => { e.stopPropagation(); await fetch(`[https://smart-logistics-backend.onrender.com](https://smart-logistics-backend.onrender.com)/api/deliveries/${del.id}/complete`, { method: "POST" }); loadDriverDeliveries(); }} className="w-full py-2 rounded-lg bg-[#19D8F2] text-[#03101E] font-bold text-xs">Complete Delivery</button>
+                <button onClick={async (e) => { e.stopPropagation(); await fetch(`https://smart-logistics-backend.onrender.com/api/deliveries/${del.id}/complete`, { method: "POST" }); loadDriverDeliveries(); }} className="w-full py-2 rounded-lg bg-[#19D8F2] text-[#03101E] font-bold text-xs">Complete Delivery</button>
               )}
             </div>
           ))}
