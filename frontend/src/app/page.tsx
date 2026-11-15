@@ -243,8 +243,9 @@ export default function SmartLogisticsApp() {
             const activeDel = deliveriesRef.current.find((d: any) => d.vehicle_number === v.vehicle_number && d.status === "In Transit");
             if (activeDel?.destination_latitude && activeDel?.destination_longitude) {
               const rId = activeDel.route_id;
-              const destLat = activeDel.destination_latitude;
-              const destLng = activeDel.destination_longitude;
+              // CRITICAL: Wrap in Number()
+              const destLat = Number(activeDel.destination_latitude);
+              const destLng = Number(activeDel.destination_longitude);
               
               if (!osrmCache.current[rId] || osrmCache.current[rId] === "FETCHING") {
                   if (!osrmCache.current[rId]) {
@@ -268,8 +269,8 @@ export default function SmartLogisticsApp() {
 
                         // 1. Overall highway vector (Source to Dest)
                         const activeDel = deliveriesRef.current.find((d: any) => d.vehicle_number === v.vehicle_number);
-                        const sLng = activeDel?.source_longitude || v.longitude;
-                        const sLat = activeDel?.source_latitude || v.latitude;
+                        const sLng = Number(activeDel?.source_longitude || v.longitude);
+                        const sLat = Number(activeDel?.source_latitude || v.latitude);
                         
                         const dx = destLng - sLng;
                         const dy = destLat - sLat;
@@ -283,11 +284,11 @@ export default function SmartLogisticsApp() {
                             const pX = -fY;
                             const pY = fX;
 
-                            // Waypoint 1: Exit highway 30km before hazard, 30km to the side
+                            // Waypoint 1: Exit highway before hazard, push to the side
                             const wp1Lng = hLng - (fX * offsetDeg) + (pX * offsetDeg);
                             const wp1Lat = hLat - (fY * offsetDeg) + (pY * offsetDeg);
 
-                            // Waypoint 2: Rejoin highway 30km after hazard, 30km to the side
+                            // Waypoint 2: Rejoin highway after hazard, push to the side
                             const wp2Lng = hLng + (fX * offsetDeg) + (pX * offsetDeg);
                             const wp2Lat = hLat + (fY * offsetDeg) + (pY * offsetDeg);
 
@@ -306,7 +307,7 @@ export default function SmartLogisticsApp() {
                     }).catch(() => { delete osrmCache.current[rId]; });
                   }
                   
-                  // GRACEFUL FALLBACK (If OSRM blocked or fetching)
+                  // GRACEFUL FALLBACK
                   const dLat = destLat - v.latitude;
                   const dLng = destLng - v.longitude;
                   const dist = Math.sqrt(dLat * dLat + dLng * dLng);
@@ -327,17 +328,14 @@ export default function SmartLogisticsApp() {
 
               const path = osrmCache.current[rId];
               if (Array.isArray(path)) {
-                  // ANTI-PENDULUM FIX: Strictly jump forward on the path array using array indices. No complex vector math.
                   let currentIdx = v.lastIdx || 0;
                   
-                  // If we reached the end of the array, snap to destination and mark idle
                   if (currentIdx >= path.length - 2) {
                       fetch(`https://smart-logistics-17od.onrender.com/api/vehicles/${v.id}/position`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ latitude: destLat, longitude: destLng, status: "Idle" }) }).catch(() => {});
                       completeDelivery(activeDel.id);
                       return { ...v, status: "Idle", latitude: destLat, longitude: destLng, lastIdx: 0 };
                   }
                   
-                  // Jump exactly 6 dots ahead in the array to ensure high-speed visible map movement without rubber-banding
                   let nextIdx = Math.min(currentIdx + 6, path.length - 1);
                   const targetPoint = path[nextIdx];
                   
@@ -354,7 +352,7 @@ export default function SmartLogisticsApp() {
 
     return () => { clearInterval(trackingEngine); clearInterval(syncInterval); };
   }, []);
-
+  
   const fetchMultiCityWeather = async (primaryCity = "Delhi") => {
     try {
       const targetCities = ["Delhi", "Mumbai", "Bangalore", "Chennai"];
@@ -655,7 +653,6 @@ export default function SmartLogisticsApp() {
         </div>
       );
     }
-
     let customDetourCoords: any[] = [];
     if (trackingData?.detour && selectedDelivery) {
         const hLng = Number(trackingData.detour.hazard_longitude || 73.8567);
@@ -664,10 +661,10 @@ export default function SmartLogisticsApp() {
         const rKm = severity === "Critical" ? 30 : severity === "High" ? 24 : severity === "Medium" ? 18 : 9;
         const oDeg = rKm / 111.0; 
 
-        const sLng = selectedDelivery.source_longitude;
-        const sLat = selectedDelivery.source_latitude;
-        const dLng = selectedDelivery.destination_longitude;
-        const dLat = selectedDelivery.destination_latitude;
+        const sLng = Number(selectedDelivery.source_longitude);
+        const sLat = Number(selectedDelivery.source_latitude);
+        const dLng = Number(selectedDelivery.destination_longitude);
+        const dLat = Number(selectedDelivery.destination_latitude);
 
         const dx = dLng - sLng;
         const dy = dLat - sLat;
@@ -677,7 +674,7 @@ export default function SmartLogisticsApp() {
             const fX = dx / dist;
             const fY = dy / dist;
             const pX = -fY;
-            const pY = fX;
+            const pY = fX; 
 
             const wp1Lng = hLng - (fX * oDeg) + (pX * oDeg);
             const wp1Lat = hLat - (fY * oDeg) + (pY * oDeg);
@@ -686,10 +683,10 @@ export default function SmartLogisticsApp() {
 
             const liveTruck = vehicles.find(v => v.vehicle_number === selectedDelivery.vehicle_number);
             customDetourCoords = [
-                { lat: liveTruck?.latitude || sLat, lng: liveTruck?.longitude || sLng },
-                { lat: wp1Lat, lng: wp1Lng },
-                { lat: wp2Lat, lng: wp2Lng },
-                { lat: dLat, lng: dLng }
+                { lat: Number(liveTruck?.latitude || sLat), lng: Number(liveTruck?.longitude || sLng) },
+                { lat: Number(wp1Lat), lng: Number(wp1Lng) },
+                { lat: Number(wp2Lat), lng: Number(wp2Lng) },
+                { lat: Number(dLat), lng: Number(dLng) }
             ];
         }
     }
@@ -699,8 +696,8 @@ export default function SmartLogisticsApp() {
 
     const activeDetourRoute = (trackingData?.detour && !handledHazards.includes(trackingData.detour.hazard_id)) ? [{
       id: "detour-1", type: "Alternative", algorithm: `AI Vector Barrier (${currRadius}km Clearance)`,
-      path: ["Current Location", `Bypass Entry`, `Bypass Exit`, selectedDelivery.destination],
-      nodes_coords: customDetourCoords.length > 0 ? customDetourCoords : trackingData.detour.detour_waypoints.map((c: any) => ({ lat: c[0], lng: c[1] })),
+      path: ["Current Location", `Bypass Entry`, `Bypass Exit`, selectedDelivery?.destination || "Destination"],
+      nodes_coords: customDetourCoords.length > 0 ? customDetourCoords : trackingData.detour.detour_waypoints.map((c: any) => ({ lat: Number(c[0]), lng: Number(c[1]) })),
       cost_hrs: trackingData.detour.cost_hrs, distance_km: trackingData.detour.distance_km
     }] : [];
 
